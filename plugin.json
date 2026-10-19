@@ -1,0 +1,13 @@
+{
+  "name": "siyuan-minimap",
+  "author": "wave789",
+  "url": "https://github.com/wave789/siyuan-minimap",
+  "version": "0.3.1",
+  "minAppVersion": "3.0.0",
+  "backends": ["all"],
+  "frontends": ["desktop", "desktop-window", "browser-desktop"],
+  "displayName": { "default": "Minimap", "zh-CN": "文档缩略图" },
+  "description": { "default": "Navigate your editor using a document minimap.", "zh-CN": "通过右侧文档缩略图点击定位、拖动和滚轮滚动。" },
+  "readme": { "default": "README.md" },
+  "keywords": ["minimap", "滚动条", "缩略图"]
+}

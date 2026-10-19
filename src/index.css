@@ -1,0 +1,50 @@
+/* Copyright 2026 wave789; SPDX-License-Identifier: Apache-2.0 */
+.protyle.sy-minimap-host { position: relative; }
+.protyle.sy-minimap-host > .protyle-content {
+    margin-right: 88px;
+    scrollbar-width: none;
+}
+.protyle.sy-minimap-host > .protyle-content::-webkit-scrollbar { width: 0; }
+/* SiYuan also supplies a custom document scrollbar. */
+.protyle.sy-minimap-host > .protyle-scroll { display: none !important; }
+.sy-minimap {
+    position: absolute;
+    right: 0;
+    width: 80px;
+    z-index: 3;
+    overflow: hidden;
+    box-sizing: border-box;
+    border-left: 1px solid var(--b3-border-color, #ddd);
+    background: var(--b3-theme-background, #fff);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    contain: strict;
+}
+.sy-minimap[hidden] { display: none; }
+.sy-minimap__preview {
+    position: absolute;
+    top: 0;
+    left: 4px;
+    pointer-events: none;
+    user-select: none;
+}
+
+.sy-minimap__viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--b3-theme-primary, #4d88ff);
+    background: color-mix(in srgb, var(--b3-theme-primary, #4d88ff) 9%, transparent);
+    border-radius: 3px;
+    pointer-events: none;
+    will-change: transform;
+}
+.sy-minimap:hover .sy-minimap__viewport,
+.sy-minimap--dragging .sy-minimap__viewport {
+    background: color-mix(in srgb, var(--b3-theme-primary, #4d88ff) 16%, transparent);
+}
+.sy-minimap--dragging { cursor: grabbing; }
+.sy-minimap:focus-visible { outline: 2px solid var(--b3-theme-primary, #4d88ff); outline-offset: -2px; }

@@ -1,0 +1,21 @@
+{
+  "name": "siyuan-minimap",
+  "version": "0.3.1",
+  "private": true,
+  "description": "思源笔记编辑器右侧文档缩略图",
+  "author": "wave789",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wave789/siyuan-minimap.git"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:browser": "npm run build && node tests/browser.cjs",
+    "test:performance": "npm run build && node tests/performance.cjs",
+    "test:images": "npm run build && node tests/images.cjs",
+    "package": "npm run build && python3 scripts/package.py"
+  },
+  "devDependencies": { "playwright": "^1.58.0" }
+}
