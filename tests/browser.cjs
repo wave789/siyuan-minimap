@@ -15,6 +15,8 @@ const assert = require('node:assert/strict');
             .protyle-content { flex: 1; overflow: auto; min-height: 0; }
             .protyle-wysiwyg { padding: 24px; }
             .protyle-wysiwyg > div { min-height: 60px; margin-bottom: 8px; }
+            .protyle-title__editor { width: auto; height: auto; }
+            .protyle-title__editor .protyle-wysiwyg { padding: 0; }
             .fn__none { display: none !important; }
         </style><div class="protyle" id="first"><div class="toolbar">Document</div><div class="protyle-content"><div class="protyle-wysiwyg">${Array.from({ length: 80 }, (_, i) => `<div data-node-id="${i}" data-type="${i % 8 ? 'NodeParagraph' : 'NodeHeading'}">Paragraph ${i} — 测试文档内容</div>`).join('')}</div></div><div class="protyle-scroll">Native</div></div>`);
         await page.evaluate(() => {
@@ -30,6 +32,16 @@ const assert = require('node:assert/strict');
             blocks[5].append(img);
             const helper = document.createElement('span'); helper.className = 'protyle-attr'; helper.textContent = 'EDITOR-HELPER'; blocks[6].append(helper);
         });
+        // SiYuan 3.8.10 rich titles mount their own nested protyle before the
+        // actual document body. A descendant query would draw only the title.
+        await page.evaluate(() => {
+            const header = document.createElement('div');
+            header.className = 'protyle-top';
+            header.innerHTML = '<div class="protyle-title"><div class="protyle protyle-title__editor"><div class="protyle-content"><div class="protyle-wysiwyg"><div data-node-id="rich-title">Rich title editor</div></div></div></div></div>';
+            const content = document.querySelector('#first > .protyle-content');
+            content.firstElementChild.dataset.docType = 'NodeDocument';
+            content.prepend(header);
+        });
         await page.addStyleTag({ path: 'src/index.css' });
         const bundle = fs.readFileSync('dist/index.js', 'utf8');
         await page.evaluate(bundle => {
@@ -44,6 +56,13 @@ const assert = require('node:assert/strict');
         const rail = page.locator('#first .sy-minimap');
         await rail.waitFor({ state: 'visible' });
         await page.waitForFunction(() => [...plugin.maps.values()].every(map => map.renderer.hasImage && !map.dirty));
+        const documentBody = await page.evaluate(() => {
+            const map = plugin.maps.get(document.querySelector('#first'));
+            return { ownBody: map.observedBody.parentElement === map.content, blocks: map.renderer.layout.length, maps: plugin.maps.size };
+        });
+        assert.equal(documentBody.ownBody, true, 'rich title editor must not replace the document body');
+        assert.equal(documentBody.blocks, 80, 'overview covers every document block, not the rich title');
+        assert.equal(documentBody.maps, 1, 'rich title editor does not receive a separate minimap');
         const preview = page.locator('#first .sy-minimap__preview');
         assert.equal(await preview.evaluate(el => el.tagName), 'CANVAS');
         const pixels = await preview.evaluate(canvas => {
@@ -62,7 +81,7 @@ const assert = require('node:assert/strict');
         await page.screenshot({ path: '/tmp/siyuan-minimap-preview.png' });
         const box = await rail.boundingBox();
         assert.equal(Math.round(box.y), 40);
-        const scroll = () => page.locator('#first .protyle-content').evaluate(el => el.scrollTop);
+        const scroll = () => page.locator('#first > .protyle-content').evaluate(el => el.scrollTop);
         await page.mouse.click(box.x + 40, box.y + box.height / 2);
         assert.ok(await scroll() > 2000, 'click jumps into document');
         const before = await scroll();
@@ -72,14 +91,14 @@ const assert = require('node:assert/strict');
         await page.waitForFunction(() => document.querySelector('.protyle-content').scrollTop === 0);
         await page.mouse.move(box.x + 40, box.y + 10); await page.mouse.down();
         await page.mouse.move(box.x + 40, box.y + box.height + 40, { steps: 8 }); await page.mouse.up();
-        const bottom = await page.locator('#first .protyle-content').evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop);
+        const bottom = await page.locator('#first > .protyle-content').evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop);
         assert.ok(Math.abs(bottom) < 2, 'drag reaches bottom');
         await page.evaluate(() => { const clone = document.querySelector('#first').cloneNode(true); clone.id = 'second'; clone.querySelector('.sy-minimap').remove(); clone.classList.remove('sy-minimap-host'); document.body.append(clone); });
         await page.waitForFunction(() => plugin.maps.size === 2 && document.querySelectorAll('.sy-minimap').length === 2);
         const second = page.locator('#second .sy-minimap'); await second.waitFor({ state: 'visible' });
         await second.hover(); await page.mouse.wheel(0, 120);
         await page.waitForFunction(() => document.querySelector('#second .protyle-content').scrollTop > 0);
-        assert.ok(Math.abs(await scroll() - (await page.locator('#first .protyle-content').evaluate(el => el.scrollHeight - el.clientHeight))) < 2);
+        assert.ok(Math.abs(await scroll() - (await page.locator('#first > .protyle-content').evaluate(el => el.scrollHeight - el.clientHeight))) < 2);
         await page.evaluate(() => document.querySelector('#second').remove());
         await page.waitForFunction(() => plugin.maps.size === 1);
         await page.evaluate(() => document.querySelector('#first .protyle-content').classList.add('fn__none'));
@@ -98,7 +117,7 @@ const assert = require('node:assert/strict');
             return !map.dirty && map.geometry.width === document.querySelector('.protyle-content').clientWidth;
         });
         await page.evaluate(() => {
-            const body = document.querySelector('.protyle-wysiwyg');
+            const body = document.querySelector('#first > .protyle-content > .protyle-wysiwyg');
             body.innerHTML = Array.from({ length: 16 }, (_, i) => `<div data-node-id="mid-${i}">中等长度文档 ${i}</div>`).join('');
         });
         await page.waitForFunction(() => ![...plugin.maps.values()][0].dirty);
@@ -109,15 +128,36 @@ const assert = require('node:assert/strict');
         assert.ok(Math.abs(naturalScale.x - naturalScale.y) < 0.00001, 'medium document preserves aspect ratio');
         const mediumBox = await rail.boundingBox();
         await page.mouse.click(mediumBox.x + 40, mediumBox.y + mediumBox.height - 5);
-        assert.ok(await page.locator('#first .protyle-content').evaluate(el => Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) < 2), 'blank track below short preview jumps to bottom');
-        await page.evaluate(() => document.querySelector('.protyle-wysiwyg').innerHTML = '<div data-node-id="short">Short</div>');
+        assert.ok(await page.locator('#first > .protyle-content').evaluate(el => Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) < 2), 'blank track below short preview jumps to bottom');
+        await page.evaluate(() => document.querySelector('#first > .protyle-content > .protyle-wysiwyg').innerHTML = '<div data-node-id="short">Short</div>');
         await rail.waitFor({ state: 'hidden' });
+        // Mounting the title before the document body must not create a minimap
+        // for the title. Discover the body when it arrives, even without a bus event.
+        await page.evaluate(() => {
+            const root = document.createElement('div');
+            root.id = 'delayed'; root.className = 'protyle';
+            root.innerHTML = '<div class="protyle-content"><div class="protyle-top"><div class="protyle-title"><div class="protyle protyle-title__editor"><div class="protyle-content"><div class="protyle-wysiwyg"><div data-node-id="delayed-title">Title only</div></div></div></div></div></div></div>';
+            document.body.append(root);
+        });
+        await page.waitForFunction(() => !plugin.pending);
+        assert.equal(await page.evaluate(() => plugin.maps.has(document.querySelector('#delayed'))), false, 'title-only editor does not count as a document');
+        await page.evaluate(() => {
+            const body = document.createElement('div');
+            body.className = 'protyle-wysiwyg'; body.dataset.docType = 'NodeDocument';
+            body.innerHTML = Array.from({ length: 40 }, (_, i) => `<div data-node-id="delayed-${i}">Delayed document ${i}</div>`).join('');
+            document.querySelector('#delayed > .protyle-content').append(body);
+        });
+        await page.waitForFunction(() => {
+            const map = plugin.maps.get(document.querySelector('#delayed'));
+            return map?.renderer.hasImage && !map.dirty;
+        });
+        assert.equal(await page.evaluate(() => plugin.maps.get(document.querySelector('#delayed')).renderer.layout.length), 40, 'late-mounted document body is rendered');
         await page.evaluate(() => plugin.onunload());
         assert.equal(await page.locator('.sy-minimap').count(), 0);
         assert.equal(await page.locator('.sy-minimap-host').count(), 0);
         assert.equal(await page.evaluate(() => handlers.size), 0);
-        assert.equal(await page.locator('.protyle-content').evaluate(el => getComputedStyle(el).scrollbarWidth), 'auto');
+        assert.equal(await page.locator('#first > .protyle-content').evaluate(el => getComputedStyle(el).scrollbarWidth), 'auto');
         assert.deepEqual(errors, []);
-        console.log('PASS: click, wheel, drag, keyboard, split panes, mount/remove, canvas pixels/colors, edit/resize refresh, short document, unload');
+        console.log('PASS: rich title isolation, late document mount, click, wheel, drag, keyboard, split panes, canvas pixels/colors, edit/resize refresh, short document, unload');
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

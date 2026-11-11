@@ -41,7 +41,7 @@ module.exports = class MinimapPlugin extends Plugin {
                     for (const [root, map] of this.maps) {
                         if (root.contains(target) || target.contains(root)) redraw.add(map);
                     }
-                } else if ([...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === 1 && !node.matches(".sy-minimap") && (node.matches(".protyle, .protyle-content") || node.querySelector(".protyle, .protyle-content")))) {
+                } else if ([...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === 1 && !node.matches(".sy-minimap") && (node.matches(".protyle, .protyle-content, .protyle-wysiwyg") || node.querySelector(".protyle, .protyle-content, .protyle-wysiwyg")))) {
                     relevant = true;
                 }
             }
@@ -63,7 +63,9 @@ module.exports = class MinimapPlugin extends Plugin {
             // Skip embedded editors and popover/backlink previews.
             if (root.parentElement?.closest(".protyle, .block__popover, .sy__backlink")) continue;
             const content = root.querySelector(":scope > .protyle-content");
-            if (!content || !content.querySelector(".protyle-wysiwyg")) continue;
+            // Rich document titles (3.8.10) contain another nested editor.
+            // Only the scroll container's own body belongs to this minimap.
+            if (!content || !content.querySelector(":scope > .protyle-wysiwyg")) continue;
             if (!this.maps.has(root)) this.maps.set(root, new Minimap(root, content));
             else this.maps.get(root).schedule(false, true);
         }

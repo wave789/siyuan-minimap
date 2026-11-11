@@ -151,7 +151,7 @@ class Minimap {
     }
     updateLayout() {
         const content = this.content;
-        const body = content.querySelector(".protyle-wysiwyg");
+        const body = content.querySelector(":scope > .protyle-wysiwyg");
         if (body !== this.observedBody) {
             if (this.observedBody) this.resize.unobserve(this.observedBody);
             if (body) this.resize.observe(body);

@@ -2,7 +2,7 @@
   "name": "siyuan-minimap",
   "author": "wave789",
   "url": "https://github.com/wave789/siyuan-minimap",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "minAppVersion": "3.0.0",
   "backends": ["all"],
   "frontends": ["desktop", "desktop-window", "browser-desktop"],
